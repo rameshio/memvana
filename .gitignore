@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.eggs/
+.venv/
+venv/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Memvana runtime data
+.memvana/
+
+# Editors / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
