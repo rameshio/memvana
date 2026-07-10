@@ -86,6 +86,9 @@ def test_ask_searches_graph_and_memory_together(
     output = capsys.readouterr().out
     assert "knowledge graph:" in output
     assert "memories:" in output
+    # "% saved" only appears when the corpus dwarfs the answer, which a
+    # two-file fixture doesn't; the meter itself must always be present.
+    assert "tokens:" in output
 
 
 def test_explain_includes_related_memories(

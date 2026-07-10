@@ -29,6 +29,7 @@ from memvana.graph.query import communities, explain, search, shortest_path
 from memvana.memory.hooks import HANDLERS
 from memvana.memory.store import MemoryStore
 from memvana.pipeline import ingest_sources, rebuild_graph, store_documents
+from memvana.tokens import corpus_tokens, estimate_tokens, savings_line
 from memvana.workspace import Workspace, find_workspace
 
 
@@ -149,31 +150,36 @@ def cmd_ask(args: argparse.Namespace) -> int:
     """Unified search: knowledge graph and memory answered together."""
     term = " ".join(args.term)
     workspace = find_workspace()
-    found_anything = False
+    lines: list[str] = []
 
     graph = KnowledgeGraph.load(workspace.graph_path)
     hits = search(graph, term)
     if hits:
-        found_anything = True
-        print("knowledge graph:")
+        lines.append("knowledge graph:")
         for hit in hits[:8]:
             node = hit.node
             location = f"  ({node.source})" if node.source else ""
-            print(f"  [{node.type:>8}] {node.label}{location}")
+            lines.append(f"  [{node.type:>8}] {node.label}{location}")
 
     if workspace.memory_db_path.is_file():
         with MemoryStore(workspace.memory_db_path) as store:
             memories = store.recall(term, limit=8)
         if memories:
-            found_anything = True
-            print("\nmemories:")
+            if lines:
+                lines.append("")
+            lines.append("memories:")
             for observation in memories:
-                print(f"  [{observation.id}] {_stamp(observation.created_at)} "
-                      f"({observation.kind}) {observation.summary}")
+                lines.append(
+                    f"  [{observation.id}] {_stamp(observation.created_at)} "
+                    f"({observation.kind}) {observation.summary}"
+                )
 
-    if not found_anything:
+    if not lines:
         print(f"Nothing in the graph or memory matches '{term}'.")
         return 1
+    output = "\n".join(lines)
+    print(output)
+    print("\n" + savings_line(estimate_tokens(output), corpus_tokens(workspace)))
     return 0
 
 
@@ -251,6 +257,10 @@ def cmd_status(args: argparse.Namespace) -> int:
           f"({'exists' if workspace.exists else 'not initialized'})")
     graph = KnowledgeGraph.load(workspace.graph_path)
     print(f"Graph:     {len(graph.nodes)} nodes, {len(graph.edges)} edges")
+    total = corpus_tokens(workspace)
+    if total:
+        print(f"Corpus:    ~{total:,} tokens ingested "
+              f"(queries return a tiny slice of this)")
     if graph.nodes:
         groups = communities(graph)
         largest = sorted(groups.values(), key=len, reverse=True)[:5]
