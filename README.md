@@ -100,7 +100,7 @@ On session start, Memvana prints recent memory as context. During the session it
 ## Development
 
 ```bash
-git clone https://github.com/ramesh-aiorchestrator/memvana
+git clone https://github.com/rameshio/memvana
 cd memvana
 python -m venv .venv && .venv/Scripts/activate    # Windows
 pip install -e ".[dev]"
