@@ -16,16 +16,21 @@ from memvana.graph.model import KnowledgeGraph
 from memvana.graph.query import explain as graph_explain
 from memvana.graph.query import search, shortest_path
 from memvana.memory.store import MemoryStore
+from memvana.ingest.converter import document_from_text
 from memvana.pipeline import ingest_sources, rebuild_graph, store_documents
 from memvana.tokens import corpus_tokens, estimate_tokens, savings_line
 from memvana.workspace import Workspace
 
 SERVER_INSTRUCTIONS = (
     "Memvana turns local files, URLs, and decisions into a queryable "
-    "knowledge graph with persistent memory. Ingest documents the user "
-    "mentions, answer connection questions with ask/explain/path_between, "
-    "and store or retrieve decisions with remember/recall. Content is "
-    "converted locally once; queries return small token-cheap slices."
+    "knowledge graph with persistent memory. IMPORTANT: this server runs "
+    "on the user's machine, so `ingest` only reaches files that exist on "
+    "the user's local disk — files uploaded into a chat live in a remote "
+    "sandbox it cannot see. For uploaded/attached files, read the content "
+    "yourself and pass it to `ingest_text` instead. Answer connection "
+    "questions with ask/explain_node/path_between; store and retrieve "
+    "decisions with remember/recall. Content is stored locally once; "
+    "queries return small token-cheap slices."
 )
 
 
@@ -55,6 +60,24 @@ def ingest(sources: list[str], project_dir: str = "") -> str:
                  f"{len(graph.edges)} edges "
                  f"(~{corpus_tokens(workspace):,} tokens ingested).")
     return "\n".join(lines)
+
+
+def ingest_text(
+    title: str, content: str, kind: str = "text", project_dir: str = ""
+) -> str:
+    """Ingest content you already have in hand — e.g. a file the user
+    uploaded into the chat (which lives in a sandbox this local server
+    cannot reach) or text you extracted yourself. Pass the full text and a
+    descriptive title; it is stored and graphed like any local file."""
+    if not content.strip():
+        return "Nothing ingested: content was empty."
+    workspace = _workspace(project_dir).ensure()
+    document = document_from_text(title, content, kind=kind)
+    store_documents(workspace, [document])
+    graph = rebuild_graph(workspace)
+    return (f"+ {document.title} ({document.kind}) ingested from chat.\n"
+            f"Graph now has {len(graph.nodes)} nodes, {len(graph.edges)} "
+            f"edges (~{corpus_tokens(workspace):,} tokens ingested).")
 
 
 def ask(query: str, project_dir: str = "") -> str:
@@ -205,7 +228,7 @@ def status(project_dir: str = "") -> str:
 
 
 TOOLS = (
-    ingest, ask, explain_node, path_between,
+    ingest, ingest_text, ask, explain_node, path_between,
     remember, recall, get_memory, status,
 )
 

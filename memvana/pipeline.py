@@ -18,7 +18,7 @@ from memvana.ingest.converter import (
     IngestedDocument,
     content_hash,
     doc_id_for,
-    ingest_path,
+    ingest_path_verbose,
     ingest_url,
     scan_directory,
 )
@@ -114,7 +114,9 @@ def ingest_sources(workspace: Workspace, sources: list[str]) -> IngestResult:
             if item.startswith(("http://", "https://")):
                 document = ingest_url(item)
                 if document is None:
-                    result.skipped.append(item)
+                    result.skipped.append(
+                        f"{item} — URL fetch or conversion failed"
+                    )
                 else:
                     result.converted.append(document)
                 continue
@@ -123,14 +125,16 @@ def ingest_sources(workspace: Workspace, sources: list[str]) -> IngestResult:
                 _walk([str(p) for p in scan_directory(path)])
                 continue
             if not path.is_file():
-                result.skipped.append(item)
+                result.skipped.append(
+                    f"{item} — not found on this machine's disk"
+                )
                 continue
             if _is_unchanged(workspace, manifest, path):
                 result.unchanged.append(path)
                 continue
-            document = ingest_path(path)
+            document, reason = ingest_path_verbose(path)
             if document is None:
-                result.skipped.append(item)
+                result.skipped.append(f"{item} — {reason}")
             else:
                 result.converted.append(document)
 

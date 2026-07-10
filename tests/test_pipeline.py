@@ -31,9 +31,22 @@ def test_modified_file_is_reingested(tmp_path: Path):
     assert not result.unchanged
 
 
-def test_missing_source_is_reported_skipped(tmp_path: Path):
+def test_missing_source_is_reported_skipped_with_reason(tmp_path: Path):
     workspace = Workspace(tmp_path).ensure()
 
     result = ingest_sources(workspace, [str(tmp_path / "ghost.md")])
 
-    assert result.skipped == [str(tmp_path / "ghost.md")]
+    assert len(result.skipped) == 1
+    assert str(tmp_path / "ghost.md") in result.skipped[0]
+    assert "not found" in result.skipped[0]
+
+
+def test_unsupported_file_reports_reason(tmp_path: Path):
+    binary = tmp_path / "app.exe"
+    binary.write_bytes(b"\x00")
+    workspace = Workspace(tmp_path).ensure()
+
+    result = ingest_sources(workspace, [str(binary)])
+
+    assert len(result.skipped) == 1
+    assert "unsupported file type" in result.skipped[0]

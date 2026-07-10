@@ -126,20 +126,17 @@ def ingest_url(url: str) -> IngestedDocument | None:
     )
 
 
-def ingest_path(source: Path) -> IngestedDocument | None:
-    """Convert a single file to an IngestedDocument.
-
-    Returns None for unsupported or oversized files instead of raising, so
-    directory scans keep going.
-    """
+def ingest_path_verbose(source: Path) -> tuple[IngestedDocument | None, str]:
+    """Convert a single file; on failure returns (None, human-readable reason)
+    instead of raising, so directory scans keep going."""
     suffix = source.suffix.lower()
     if suffix in CODE_EXTENSIONS or suffix in TEXT_EXTENSIONS:
         if source.stat().st_size > MAX_TEXT_FILE_BYTES:
-            return None
+            return None, f"file larger than {MAX_TEXT_FILE_BYTES:,} bytes"
         try:
             text = source.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            return None
+        except OSError as error:
+            return None, f"unreadable: {error}"
         kind = CODE_EXTENSIONS.get(suffix) or TEXT_EXTENSIONS[suffix]
         if kind in ("markdown", "text", "config"):
             markdown = text
@@ -151,24 +148,46 @@ def ingest_path(source: Path) -> IngestedDocument | None:
             kind=kind,
             title=_title_for(source, markdown),
             markdown=markdown,
-        )
+        ), ""
 
     if suffix in MARKITDOWN_EXTENSIONS:
         try:
             markdown = _convert_with_markitdown(str(source))
-        except Exception:
-            return None
+        except Exception as error:
+            reason = f"conversion failed: {type(error).__name__}: {error}"
+            return None, reason[:200]
         if not markdown.strip():
-            return None
+            return None, "conversion produced no text"
         return IngestedDocument(
             source=str(source),
             doc_id=doc_id_for(source),
             kind=suffix.lstrip("."),
             title=_title_for(source, markdown),
             markdown=markdown,
-        )
+        ), ""
 
-    return None
+    return None, f"unsupported file type '{suffix or source.name}'"
+
+
+def ingest_path(source: Path) -> IngestedDocument | None:
+    """Convert a single file, or None on failure (see ingest_path_verbose)."""
+    return ingest_path_verbose(source)[0]
+
+
+def document_from_text(
+    title: str, content: str, kind: str = "text", source: str = "chat"
+) -> IngestedDocument:
+    """Build a document from content already in hand (e.g. a file uploaded
+    into a chat, which never touches the local disk)."""
+    doc_id = hashlib.sha1(
+        f"{source}:{title}".encode("utf-8")
+    ).hexdigest()[:12]
+    markdown = content
+    if not content.lstrip().startswith("#"):
+        markdown = f"# {title}\n\n{content}"
+    return IngestedDocument(
+        source=source, doc_id=doc_id, kind=kind, title=title, markdown=markdown
+    )
 
 
 def scan_directory(root: Path) -> list[Path]:

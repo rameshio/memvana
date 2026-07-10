@@ -70,6 +70,35 @@ def test_status_reports_counts(tmp_path: Path):
     assert "nodes" in result and "Corpus" in result
 
 
+def test_ingest_text_graphs_chat_uploaded_content(tmp_path: Path):
+    project = str(tmp_path)
+
+    result = mcp_server.ingest_text(
+        "Ramesh Resume",
+        "## Summary\n\nPlatform engineer moving into **AI Orchestration**.",
+        kind="markdown",
+        project_dir=project,
+    )
+    answer = mcp_server.ask("AI Orchestration", project_dir=project)
+
+    assert "Ramesh Resume" in result
+    assert "AI Orchestration" in answer
+
+
+def test_ingest_text_rejects_empty_content(tmp_path: Path):
+    result = mcp_server.ingest_text("Empty", "   ", project_dir=str(tmp_path))
+
+    assert "Nothing ingested" in result
+
+
+def test_ingest_reports_reason_for_missing_path(tmp_path: Path):
+    result = mcp_server.ingest(
+        [str(tmp_path / "sandbox-file.docx")], project_dir=str(tmp_path)
+    )
+
+    assert "not found on this machine's disk" in result
+
+
 def test_default_workspace_is_home(tmp_path: Path):
     workspace = mcp_server._workspace("")
 

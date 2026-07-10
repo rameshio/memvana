@@ -148,8 +148,13 @@ C:\\Users\\me\\Documents\\jobs, then tell me which ones want Kubernetes."*
 
 Desktop chats use a global workspace at `~/.memvana` by default; pass a
 `project_dir` to any tool to scope it to one project. Exposed tools:
-`ingest`, `ask`, `explain_node`, `path_between`, `remember`, `recall`,
-`get_memory`, `status`.
+`ingest`, `ingest_text`, `ask`, `explain_node`, `path_between`,
+`remember`, `recall`, `get_memory`, `status`.
+
+Note: `ingest` reads the **local disk**, so files uploaded *into* a chat
+(which live in a remote sandbox) can't be reached by path — the server's
+instructions tell Claude to pass their content through `ingest_text`
+instead, so uploaded documents still land in your graph.
 
 ### Automatic session memory (hooks)
 
