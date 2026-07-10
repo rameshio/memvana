@@ -81,16 +81,20 @@ Rebuilds are incremental: unchanged files are detected by content hash and skipp
 
 ### Install as a skill (recommended)
 
-Copy the bundled skill so Claude activates Memvana **automatically** — no
-commands to remember. Drop a PDF into chat, ask "how does X connect to Y",
-or say "remember this decision", and Claude uses Memvana on its own:
+The repo doubles as a skill: [SKILL.md](SKILL.md) sits at the root, so
+cloning it into your skills directory is the whole install. Claude then
+activates Memvana **automatically** — drop a PDF into chat, ask "how does X
+connect to Y", or say "remember this decision", and Claude uses Memvana on
+its own:
 
 ```bash
 pip install "memvana[all]"
-mkdir -p ~/.claude/skills/memvana && cp skill/SKILL.md ~/.claude/skills/memvana/
+git clone --depth 1 https://github.com/rameshio/memvana ~/.claude/skills/memvana
 ```
 
-(Windows PowerShell: `New-Item -ItemType Directory -Force $HOME\.claude\skills\memvana; Copy-Item skill\SKILL.md $HOME\.claude\skills\memvana\`)
+Skill managers that install from a GitHub URL (e.g. `<tool> skills install
+https://github.com/rameshio/memvana`) work the same way, since `SKILL.md`
+is at the repo root.
 
 ### Automatic session memory (hooks)
 
