@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/memvana-banner.svg" alt="Memvana — anything in, a graph that remembers" width="820">
+</p>
+
 # Memvana
 
 [![CI](https://github.com/rameshio/memvana/actions/workflows/ci.yml/badge.svg)](https://github.com/rameshio/memvana/actions/workflows/ci.yml)
@@ -74,6 +78,21 @@ Rebuilds are incremental: unchanged files are detected by content hash and skipp
 3. **Memory** — observations live in SQLite with FTS5 full-text search. `recall` returns a compact index first (cheap); `show <id>` fetches full content only when needed — progressive disclosure keeps context token-efficient for AI agents. Anything wrapped in `<private>...</private>` is stripped before it ever reaches disk.
 
 ## Claude Code integration
+
+### Install as a skill (recommended)
+
+Copy the bundled skill so Claude activates Memvana **automatically** — no
+commands to remember. Drop a PDF into chat, ask "how does X connect to Y",
+or say "remember this decision", and Claude uses Memvana on its own:
+
+```bash
+pip install "memvana[all]"
+mkdir -p ~/.claude/skills/memvana && cp skill/SKILL.md ~/.claude/skills/memvana/
+```
+
+(Windows PowerShell: `New-Item -ItemType Directory -Force $HOME\.claude\skills\memvana; Copy-Item skill\SKILL.md $HOME\.claude\skills\memvana\`)
+
+### Automatic session memory (hooks)
 
 Give every Claude Code session persistent memory by wiring three hooks into `.claude/settings.json`:
 

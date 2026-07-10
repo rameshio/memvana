@@ -1,0 +1,65 @@
+<svg width="1200" height="320" viewBox="0 0 1200 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="320" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0d1017"/>
+      <stop offset="1" stop-color="#171b28"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.18" cy="0.5" r="0.55">
+      <stop offset="0" stop-color="#7aa2f7" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#7aa2f7" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="wordmark" x1="400" y1="120" x2="980" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7aa2f7"/>
+      <stop offset="0.55" stop-color="#bb9af7"/>
+      <stop offset="1" stop-color="#73daca"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="320" rx="18" fill="url(#bg)"/>
+  <rect width="1200" height="320" rx="18" fill="url(#glow)"/>
+  <rect x="0.5" y="0.5" width="1199" height="319" rx="17.5" stroke="#2a3047"/>
+
+  <!-- knowledge-graph "M" motif -->
+  <g stroke="#3b4261" stroke-width="2">
+    <line x1="110" y1="225" x2="110" y2="105"/>
+    <line x1="110" y1="105" x2="190" y2="180"/>
+    <line x1="190" y1="180" x2="270" y2="105"/>
+    <line x1="270" y1="105" x2="270" y2="225"/>
+  </g>
+  <!-- inferred (dashed) satellite links -->
+  <g stroke="#e0af68" stroke-opacity="0.45" stroke-width="1.6" stroke-dasharray="5 5">
+    <line x1="110" y1="105" x2="62" y2="58"/>
+    <line x1="270" y1="105" x2="318" y2="58"/>
+    <line x1="190" y1="180" x2="190" y2="262"/>
+  </g>
+  <g stroke="#3b4261" stroke-opacity="0.8" stroke-width="1.6">
+    <line x1="110" y1="225" x2="48" y2="170"/>
+    <line x1="270" y1="225" x2="332" y2="170"/>
+  </g>
+
+  <!-- nodes -->
+  <circle cx="110" cy="225" r="11" fill="#7aa2f7"/>
+  <circle cx="110" cy="105" r="11" fill="#bb9af7"/>
+  <circle cx="190" cy="180" r="13" fill="#73daca"/>
+  <circle cx="270" cy="105" r="11" fill="#9ece6a"/>
+  <circle cx="270" cy="225" r="11" fill="#e0af68"/>
+  <!-- satellites -->
+  <circle cx="62"  cy="58"  r="6" fill="#bb9af7" fill-opacity="0.8"/>
+  <circle cx="318" cy="58"  r="6" fill="#9ece6a" fill-opacity="0.8"/>
+  <circle cx="48"  cy="170" r="6" fill="#7aa2f7" fill-opacity="0.8"/>
+  <circle cx="332" cy="170" r="6" fill="#e0af68" fill-opacity="0.8"/>
+  <circle cx="190" cy="262" r="6" fill="#73daca" fill-opacity="0.8"/>
+  <!-- node highlights -->
+  <circle cx="190" cy="180" r="19" stroke="#73daca" stroke-opacity="0.35" stroke-width="2"/>
+
+  <!-- wordmark -->
+  <text x="400" y="178" font-family="Segoe UI, Helvetica, Arial, sans-serif"
+        font-size="86" font-weight="700" letter-spacing="1" fill="url(#wordmark)">memvana</text>
+  <text x="404" y="228" font-family="Segoe UI, Helvetica, Arial, sans-serif"
+        font-size="24" letter-spacing="4" fill="#9aa5ce">ANYTHING IN&#160;&#160;·&#160;&#160;A GRAPH THAT REMEMBERS</text>
+
+  <!-- pipeline hint -->
+  <g font-family="Consolas, Menlo, monospace" font-size="16" fill="#565f89">
+    <text x="404" y="272">ingest → graph → memory</text>
+  </g>
+</svg>
