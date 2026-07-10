@@ -123,6 +123,34 @@ Skill managers that install from a GitHub URL (e.g. `<tool> skills install
 https://github.com/rameshio/memvana`) work the same way, since `SKILL.md`
 is at the repo root.
 
+## Claude Desktop integration (MCP)
+
+Memvana ships an MCP server, so **normal Claude Desktop chats** (and any
+other MCP client — Cursor, Windsurf, VS Code...) get the same powers: ingest
+local files once for zero tokens, query them cheaply forever, and keep
+memory that persists across chats.
+
+Add to `claude_desktop_config.json` (Settings → Developer → Edit Config):
+
+```json
+{
+  "mcpServers": {
+    "memvana": {
+      "command": "memvana",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+Restart Claude Desktop, then try: *"Ingest the job descriptions in
+C:\\Users\\me\\Documents\\jobs, then tell me which ones want Kubernetes."*
+
+Desktop chats use a global workspace at `~/.memvana` by default; pass a
+`project_dir` to any tool to scope it to one project. Exposed tools:
+`ingest`, `ask`, `explain_node`, `path_between`, `remember`, `recall`,
+`get_memory`, `status`.
+
 ### Automatic session memory (hooks)
 
 Give every Claude Code session persistent memory by wiring three hooks into `.claude/settings.json`:

@@ -12,6 +12,7 @@
     memvana show <id>             full content of one memory
     memvana sessions              list memory sessions
     memvana status                workspace statistics
+    memvana mcp                   MCP server for Claude Desktop and others
     memvana hook <event>          Claude Code hook endpoint
 """
 
@@ -274,6 +275,16 @@ def cmd_status(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_mcp(args: argparse.Namespace) -> int:
+    from memvana.mcp_server import serve
+    try:
+        serve()
+    except RuntimeError as error:
+        print(str(error), file=sys.stderr)
+        return 1
+    return 0
+
+
 def cmd_hook(args: argparse.Namespace) -> int:
     handler = HANDLERS.get(args.event)
     if handler is None:
@@ -341,6 +352,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("status", help="workspace statistics")
     p.set_defaults(func=cmd_status)
+
+    p = sub.add_parser("mcp", help="run the MCP server (Claude Desktop etc.)")
+    p.set_defaults(func=cmd_mcp)
 
     p = sub.add_parser("hook", help="Claude Code hook endpoint")
     p.add_argument("event", help="session-start | post-tool | session-end")

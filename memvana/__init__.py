@@ -6,4 +6,4 @@ One tool, three jobs:
   3. Remember everything across sessions with searchable, persistent memory.
 """
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
