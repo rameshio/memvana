@@ -21,10 +21,37 @@ Everything runs **locally**. Code and Markdown analysis is fully deterministic â
 
 ## Install
 
+**One command** (CLI + Claude Code skill together):
+
 ```bash
-pip install memvana            # core (text, code, HTML, and common rich formats)
-pip install "memvana[all]"     # every format MarkItDown supports (PDF, Office, audio, ...)
+# macOS / Linux / Git Bash
+curl -fsSL https://raw.githubusercontent.com/rameshio/memvana/main/install.sh | bash
 ```
+
+```powershell
+# Windows PowerShell
+irm https://raw.githubusercontent.com/rameshio/memvana/main/install.ps1 | iex
+```
+
+Or just the Python package:
+
+```bash
+pip install "memvana[all] @ git+https://github.com/rameshio/memvana"
+```
+
+### For AI agents
+
+If you are an AI assistant asked to install Memvana from this repository,
+follow these steps exactly:
+
+1. Install the CLI: `pip install "memvana[all] @ git+https://github.com/rameshio/memvana"`
+2. Install the skill file: download
+   `https://raw.githubusercontent.com/rameshio/memvana/main/SKILL.md`
+   into your host's skills directory â€” for Claude Code that is
+   `~/.claude/skills/memvana/SKILL.md`; for other assistants use their
+   equivalent rules/skills location.
+3. Verify with `memvana --version`, then tell the user to restart their
+   session so the skill loads.
 
 ## Quick start
 
