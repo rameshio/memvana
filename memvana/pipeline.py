@@ -1,21 +1,37 @@
 """Pipeline: ingest sources into the workspace and (re)build the graph.
 
 Stored layout: each ingested document lives at
-.memvana/documents/<doc_id>.md, with its metadata recorded in
-.memvana/manifest.json so the graph can be rebuilt without the originals.
+.memvana/documents/<doc_id>.md, with its metadata (including a content hash)
+recorded in .memvana/manifest.json. Unchanged files are skipped on rebuild,
+which matters when conversion involves heavy formats like PDF or Office.
 """
 
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from memvana.graph.builder import build_graph
 from memvana.graph.model import KnowledgeGraph
-from memvana.ingest.converter import IngestedDocument, ingest_path, scan_directory
+from memvana.ingest.converter import (
+    IngestedDocument,
+    content_hash,
+    doc_id_for,
+    ingest_path,
+    ingest_url,
+    scan_directory,
+)
 from memvana.workspace import Workspace
 
 MANIFEST_NAME = "manifest.json"
+
+
+@dataclass
+class IngestResult:
+    converted: list[IngestedDocument] = field(default_factory=list)
+    unchanged: list[Path] = field(default_factory=list)
+    skipped: list[str] = field(default_factory=list)
 
 
 def _manifest_path(workspace: Workspace) -> Path:
@@ -44,10 +60,12 @@ def store_documents(
         (workspace.documents_dir / doc.stored_name).write_text(
             doc.markdown, encoding="utf-8"
         )
+        source_path = Path(doc.source)
         manifest[doc.doc_id] = {
             "source": doc.source,
             "kind": doc.kind,
             "title": doc.title,
+            "sha1": content_hash(source_path) if source_path.is_file() else "",
         }
     _save_manifest(workspace, manifest)
 
@@ -71,26 +89,53 @@ def load_stored_documents(workspace: Workspace) -> list[IngestedDocument]:
     return documents
 
 
-def ingest_files(
-    workspace: Workspace, paths: list[Path]
-) -> tuple[list[IngestedDocument], list[Path]]:
-    """Ingest files; returns (converted documents, skipped paths)."""
-    converted: list[IngestedDocument] = []
-    skipped: list[Path] = []
-    for path in paths:
-        if path.is_dir():
-            directory_docs, directory_skipped = ingest_files(
-                workspace, scan_directory(path)
-            )
-            converted.extend(directory_docs)
-            skipped.extend(directory_skipped)
-            continue
-        document = ingest_path(path) if path.is_file() else None
-        if document is None:
-            skipped.append(path)
-        else:
-            converted.append(document)
-    return converted, skipped
+def _is_unchanged(
+    workspace: Workspace, manifest: dict[str, dict], path: Path
+) -> bool:
+    entry = manifest.get(doc_id_for(path))
+    if entry is None or not entry.get("sha1"):
+        return False
+    stored = workspace.documents_dir / f"{doc_id_for(path)}.md"
+    if not stored.is_file():
+        return False
+    try:
+        return content_hash(path) == entry["sha1"]
+    except OSError:
+        return False
+
+
+def ingest_sources(workspace: Workspace, sources: list[str]) -> IngestResult:
+    """Ingest files, directories, and URLs, skipping unchanged files."""
+    manifest = _load_manifest(workspace)
+    result = IngestResult()
+
+    def _walk(items: list[str]) -> None:
+        for item in items:
+            if item.startswith(("http://", "https://")):
+                document = ingest_url(item)
+                if document is None:
+                    result.skipped.append(item)
+                else:
+                    result.converted.append(document)
+                continue
+            path = Path(item)
+            if path.is_dir():
+                _walk([str(p) for p in scan_directory(path)])
+                continue
+            if not path.is_file():
+                result.skipped.append(item)
+                continue
+            if _is_unchanged(workspace, manifest, path):
+                result.unchanged.append(path)
+                continue
+            document = ingest_path(path)
+            if document is None:
+                result.skipped.append(item)
+            else:
+                result.converted.append(document)
+
+    _walk(sources)
+    return result
 
 
 def rebuild_graph(workspace: Workspace) -> KnowledgeGraph:

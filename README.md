@@ -1,5 +1,8 @@
 # Memvana
 
+[![CI](https://github.com/rameshio/memvana/actions/workflows/ci.yml/badge.svg)](https://github.com/rameshio/memvana/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 **Universal ingestion → knowledge graph → persistent memory. One tool that turns anything into a queryable graph that remembers.**
 
 Memvana combines the three jobs you normally need three separate tools for:
@@ -38,13 +41,19 @@ memvana html
 # 4. Remember things across sessions
 memvana remember "Chose Postgres over MySQL for JSONB support" --tags decision
 memvana recall postgres
+
+# 5. Or ask everything at once — graph and memory in a single answer
+memvana ask payment
 ```
 
-Add individual files anytime — any format:
+Add individual files or web pages anytime — any format:
 
 ```bash
 memvana ingest design-spec.pdf meeting-notes.docx architecture.png
+memvana ingest https://example.com/architecture-blog-post
 ```
+
+Rebuilds are incremental: unchanged files are detected by content hash and skipped, so re-running `memvana build .` after editing one file only reconverts that file.
 
 ## How it works
 
@@ -61,7 +70,7 @@ memvana ingest design-spec.pdf meeting-notes.docx architecture.png
 ```
 
 1. **Ingest** — text and code are read directly; rich formats go through MarkItDown. Everything is stored as Markdown in `.memvana/documents/`.
-2. **Graph** — Markdown structure (headings, links, `[[wiki-links]]`, **bold concepts**) and Python code (imports, classes, functions, calls, inheritance via AST) become nodes and edges. Every edge is tagged **extracted** (stated in the source) or **inferred** (derived by name resolution or co-occurrence), so you always know how much to trust a connection. Communities are detected by label propagation.
+2. **Graph** — Markdown structure (headings, links, `[[wiki-links]]`, **bold concepts**), Python code (imports, classes, functions, calls, inheritance via AST), and JavaScript/TypeScript (imports, functions, classes) become nodes and edges. Every edge is tagged **extracted** (stated in the source) or **inferred** (derived by name resolution or co-occurrence), so you always know how much to trust a connection. Communities are detected by label propagation.
 3. **Memory** — observations live in SQLite with FTS5 full-text search. `recall` returns a compact index first (cheap); `show <id>` fetches full content only when needed — progressive disclosure keeps context token-efficient for AI agents. Anything wrapped in `<private>...</private>` is stripped before it ever reaches disk.
 
 ## Claude Code integration
@@ -84,8 +93,9 @@ On session start, Memvana prints recent memory as context. During the session it
 
 | Command | Purpose |
 |---------|---------|
-| `memvana build [path]` | Ingest a directory and build the graph |
-| `memvana ingest <file...>` | Ingest specific files (any format) and update the graph |
+| `memvana build [path]` | Ingest a directory and build the graph (incremental) |
+| `memvana ingest <src...>` | Ingest files or URLs (any format) and update the graph |
+| `memvana ask <term>` | Search graph **and** memory together |
 | `memvana query <term>` | Search graph nodes |
 | `memvana path <a> <b>` | Shortest connection between two things |
 | `memvana explain <term>` | One node and everything connected to it |

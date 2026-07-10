@@ -73,6 +73,45 @@ def test_remember_then_recall(project: Path, capsys: pytest.CaptureFixture):
     assert "Chose Flask over Django" in capsys.readouterr().out
 
 
+def test_ask_searches_graph_and_memory_together(
+    project: Path, capsys: pytest.CaptureFixture
+):
+    main(["build", "."])
+    main(["remember", "start_server", "needs", "a", "config", "review"])
+    capsys.readouterr()
+
+    exit_code = main(["ask", "start_server"])
+
+    assert exit_code == 0
+    output = capsys.readouterr().out
+    assert "knowledge graph:" in output
+    assert "memories:" in output
+
+
+def test_explain_includes_related_memories(
+    project: Path, capsys: pytest.CaptureFixture
+):
+    main(["build", "."])
+    main(["remember", "configure", "should", "load", "env", "vars"])
+    capsys.readouterr()
+
+    exit_code = main(["explain", "configure"])
+
+    assert exit_code == 0
+    output = capsys.readouterr().out
+    assert "memories:" in output
+
+
+def test_rebuild_reports_unchanged(project: Path, capsys: pytest.CaptureFixture):
+    main(["build", "."])
+    capsys.readouterr()
+
+    exit_code = main(["build", "."])
+
+    assert exit_code == 0
+    assert "2 unchanged" in capsys.readouterr().out
+
+
 def test_html_export(project: Path, capsys: pytest.CaptureFixture):
     main(["build", "."])
 

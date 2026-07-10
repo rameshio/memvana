@@ -89,6 +89,30 @@ def test_python_document_is_connected_to_its_module(tmp_path: Path):
     assert path is not None
 
 
+def test_javascript_extraction(tmp_path: Path):
+    source = tmp_path / "api.ts"
+    source.write_text(
+        "import { db } from './database';\n"
+        "const helper = require('lodash');\n\n"
+        "export async function fetchUsers() {\n"
+        "  return db.query('users');\n"
+        "}\n\n"
+        "export const formatUser = (user) => user.name;\n\n"
+        "export class UserService extends BaseService {\n"
+        "  constructor() { super(); }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    graph = build_graph([ingest_path(source)])
+
+    labels = {node.label for node in graph.nodes.values()}
+    assert {"api", "fetchUsers", "formatUser", "UserService"} <= labels
+    inherits = [e for e in graph.edges if e.relation == "inherits"]
+    assert len(inherits) == 1
+    imports = [e for e in graph.edges if e.relation == "imports"]
+    assert len(imports) == 2  # ./database and lodash
+
+
 def test_communities_cover_all_nodes(tmp_path: Path):
     graph = build_graph(_docs(tmp_path))
 

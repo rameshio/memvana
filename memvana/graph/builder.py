@@ -17,6 +17,22 @@ from pathlib import Path
 from memvana.graph.model import EXTRACTED, INFERRED, Edge, KnowledgeGraph, Node
 from memvana.ingest.converter import IngestedDocument
 
+JS_KINDS = {"javascript", "typescript"}
+JS_IMPORT_PATTERN = re.compile(
+    r"""(?:import\s+(?:[\w{},*\s]+\s+from\s+)?|require\(\s*)['"]([^'"]+)['"]"""
+)
+JS_FUNCTION_PATTERN = re.compile(
+    r"^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s+(\w+)\s*\(",
+    re.MULTILINE,
+)
+JS_ARROW_PATTERN = re.compile(
+    r"^\s*(?:export\s+)?(?:const|let|var)\s+(\w+)\s*=[^;\n]*=>", re.MULTILINE
+)
+JS_CLASS_PATTERN = re.compile(
+    r"^\s*(?:export\s+)?(?:default\s+)?class\s+(\w+)(?:\s+extends\s+([\w.]+))?",
+    re.MULTILINE,
+)
+
 HEADING_PATTERN = re.compile(r"^(#{1,6})\s+(.+)$", re.MULTILINE)
 MARKDOWN_LINK_PATTERN = re.compile(r"\[([^\]]+)\]\(([^)\s]+)\)")
 WIKI_LINK_PATTERN = re.compile(r"\[\[([^\]]+)\]\]")
@@ -41,6 +57,9 @@ def build_graph(documents: list[IngestedDocument]) -> KnowledgeGraph:
         if doc.kind == "python":
             code = _extract_fenced_code(doc.markdown) or doc.markdown
             python_sources.append((doc, code))
+        elif doc.kind in JS_KINDS:
+            code = _extract_fenced_code(doc.markdown) or doc.markdown
+            _extract_js_entities(graph, doc, code)
         else:
             _extract_markdown_structure(graph, doc, doc_node_id)
 
@@ -138,6 +157,42 @@ def _extract_python_entities(
             _add_function(graph, doc, module_id, node)
 
 
+def _extract_js_entities(
+    graph: KnowledgeGraph, doc: IngestedDocument, code: str
+) -> None:
+    """Lightweight regex extraction for JavaScript/TypeScript.
+
+    Not a real parser: catches top-level functions, arrow-function
+    assignments, classes (with extends), and import/require targets.
+    """
+    module_name = Path(doc.source).stem
+    module_id = f"mod:{doc.doc_id}"
+    graph.add_node(Node(module_id, module_name, "module", doc.source))
+    graph.add_edge(Edge(f"doc:{doc.doc_id}", module_id, "contains", EXTRACTED))
+
+    for match in JS_IMPORT_PATTERN.finditer(code):
+        imported = match.group(1).strip().lstrip("./")
+        if imported:
+            _add_import(graph, module_id, imported, doc.source)
+
+    for pattern in (JS_FUNCTION_PATTERN, JS_ARROW_PATTERN):
+        for match in pattern.finditer(code):
+            function_id = f"func:{doc.doc_id}:{match.group(1)}"
+            graph.add_node(
+                Node(function_id, match.group(1), "function", doc.source)
+            )
+            graph.add_edge(Edge(module_id, function_id, "defines", EXTRACTED))
+
+    for match in JS_CLASS_PATTERN.finditer(code):
+        class_id = f"class:{doc.doc_id}:{match.group(1)}"
+        graph.add_node(Node(class_id, match.group(1), "class", doc.source))
+        graph.add_edge(Edge(module_id, class_id, "defines", EXTRACTED))
+        if match.group(2):
+            base_id = f"concept:{_slug(match.group(2))}"
+            graph.add_node(Node(base_id, match.group(2), "concept"))
+            graph.add_edge(Edge(class_id, base_id, "inherits", EXTRACTED))
+
+
 def _add_import(
     graph: KnowledgeGraph, module_id: str, imported: str, source: str
 ) -> None:
@@ -230,7 +285,9 @@ def _link_imports_to_modules(graph: KnowledgeGraph) -> None:
         if edge.relation != "imports" or not edge.target.startswith("import:"):
             continue
         imported = edge.target.removeprefix("import:")
-        target_module = modules_by_name.get(imported.split(".")[-1])
+        # Trailing segment of either "pkg.sub.module" or "path/to/module".
+        tail = imported.split("/")[-1].split(".")[-1]
+        target_module = modules_by_name.get(tail)
         if target_module and target_module != edge.source:
             graph.add_edge(Edge(edge.source, target_module, "imports", INFERRED))
 

@@ -77,8 +77,14 @@ class IngestedDocument:
         return f"{self.doc_id}.md"
 
 
-def _doc_id_for(source: Path) -> str:
+def doc_id_for(source: Path) -> str:
+    """Stable document id derived from the absolute source path."""
     return hashlib.sha1(str(source.resolve()).encode("utf-8")).hexdigest()[:12]
+
+
+def content_hash(source: Path) -> str:
+    """SHA-1 of the file bytes, used to skip unchanged files on rebuild."""
+    return hashlib.sha1(source.read_bytes()).hexdigest()
 
 
 def _title_for(source: Path, markdown: str) -> str:
@@ -89,7 +95,7 @@ def _title_for(source: Path, markdown: str) -> str:
     return source.stem
 
 
-def _convert_with_markitdown(source: Path) -> str:
+def _convert_with_markitdown(source: str) -> str:
     try:
         from markitdown import MarkItDown
     except ImportError as error:  # pragma: no cover - environment dependent
@@ -97,8 +103,27 @@ def _convert_with_markitdown(source: Path) -> str:
             "MarkItDown is required for rich formats. "
             "Install it with: pip install 'memvana[all]'"
         ) from error
-    result = MarkItDown(enable_plugins=False).convert(str(source))
+    result = MarkItDown(enable_plugins=False).convert(source)
     return result.text_content or ""
+
+
+def ingest_url(url: str) -> IngestedDocument | None:
+    """Fetch a web page (or YouTube URL, etc.) and convert it to Markdown."""
+    try:
+        markdown = _convert_with_markitdown(url)
+    except Exception:
+        return None
+    if not markdown.strip():
+        return None
+    doc_id = hashlib.sha1(url.encode("utf-8")).hexdigest()[:12]
+    title = next(
+        (line[2:].strip() for line in markdown.splitlines()
+         if line.strip().startswith("# ")),
+        url,
+    )
+    return IngestedDocument(
+        source=url, doc_id=doc_id, kind="url", title=title, markdown=markdown
+    )
 
 
 def ingest_path(source: Path) -> IngestedDocument | None:
@@ -122,7 +147,7 @@ def ingest_path(source: Path) -> IngestedDocument | None:
             markdown = f"# {source.name}\n\n```{kind}\n{text}\n```\n"
         return IngestedDocument(
             source=str(source),
-            doc_id=_doc_id_for(source),
+            doc_id=doc_id_for(source),
             kind=kind,
             title=_title_for(source, markdown),
             markdown=markdown,
@@ -130,14 +155,14 @@ def ingest_path(source: Path) -> IngestedDocument | None:
 
     if suffix in MARKITDOWN_EXTENSIONS:
         try:
-            markdown = _convert_with_markitdown(source)
+            markdown = _convert_with_markitdown(str(source))
         except Exception:
             return None
         if not markdown.strip():
             return None
         return IngestedDocument(
             source=str(source),
-            doc_id=_doc_id_for(source),
+            doc_id=doc_id_for(source),
             kind=suffix.lstrip("."),
             title=_title_for(source, markdown),
             markdown=markdown,

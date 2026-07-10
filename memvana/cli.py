@@ -1,7 +1,8 @@
 """Memvana command-line interface.
 
     memvana build [path]          ingest a directory and build the graph
-    memvana ingest <file...>      ingest specific files and update the graph
+    memvana ingest <src...>       ingest files or URLs and update the graph
+    memvana ask <term>            search graph and memory together
     memvana query <term>          search the knowledge graph
     memvana path <a> <b>          shortest connection between two things
     memvana explain <term>        everything connected to one node
@@ -27,7 +28,7 @@ from memvana.graph.model import KnowledgeGraph
 from memvana.graph.query import communities, explain, search, shortest_path
 from memvana.memory.hooks import HANDLERS
 from memvana.memory.store import MemoryStore
-from memvana.pipeline import ingest_files, rebuild_graph, store_documents
+from memvana.pipeline import ingest_sources, rebuild_graph, store_documents
 from memvana.workspace import Workspace, find_workspace
 
 
@@ -45,10 +46,11 @@ def _stamp(epoch: float) -> str:
 def cmd_build(args: argparse.Namespace) -> int:
     root = Path(args.path).resolve()
     workspace = Workspace(root).ensure()
-    documents, skipped = ingest_files(workspace, [root])
-    store_documents(workspace, documents)
+    result = ingest_sources(workspace, [str(root)])
+    store_documents(workspace, result.converted)
     graph = rebuild_graph(workspace)
-    print(f"Ingested {len(documents)} documents ({len(skipped)} skipped).")
+    print(f"Ingested {len(result.converted)} documents "
+          f"({len(result.unchanged)} unchanged, {len(result.skipped)} skipped).")
     print(f"Graph: {len(graph.nodes)} nodes, {len(graph.edges)} edges.")
     print(f"Workspace: {workspace.base_dir}")
     return 0
@@ -56,17 +58,19 @@ def cmd_build(args: argparse.Namespace) -> int:
 
 def cmd_ingest(args: argparse.Namespace) -> int:
     workspace = find_workspace().ensure()
-    paths = [Path(p) for p in args.files]
-    documents, skipped = ingest_files(workspace, paths)
-    if not documents:
-        print("Nothing ingested (unsupported or unreadable files).", file=sys.stderr)
+    result = ingest_sources(workspace, args.files)
+    if not result.converted and not result.unchanged:
+        print("Nothing ingested (unsupported or unreadable sources).",
+              file=sys.stderr)
         return 1
-    store_documents(workspace, documents)
+    store_documents(workspace, result.converted)
     graph = rebuild_graph(workspace)
-    for doc in documents:
+    for doc in result.converted:
         print(f"+ {doc.title} ({doc.kind}) <- {doc.source}")
-    for path in skipped:
-        print(f"~ skipped {path}", file=sys.stderr)
+    for path in result.unchanged:
+        print(f"= unchanged {path}")
+    for item in result.skipped:
+        print(f"~ skipped {item}", file=sys.stderr)
     print(f"Graph: {len(graph.nodes)} nodes, {len(graph.edges)} edges.")
     return 0
 
@@ -102,7 +106,8 @@ def cmd_path(args: argparse.Namespace) -> int:
 
 
 def cmd_explain(args: argparse.Namespace) -> int:
-    graph = _graph(find_workspace())
+    workspace = find_workspace()
+    graph = _graph(workspace)
     result = explain(graph, " ".join(args.term))
     if result is None:
         print(f"No node matching '{' '.join(args.term)}'.")
@@ -123,6 +128,52 @@ def cmd_explain(args: argparse.Namespace) -> int:
         for edge, other in result.incoming[:25]:
             suffix = " (inferred)" if edge.confidence == "inferred" else ""
             print(f"  {other.label} -{edge.relation}->{suffix}")
+    _print_related_memories(workspace, node.label)
+    return 0
+
+
+def _print_related_memories(workspace: Workspace, label: str) -> None:
+    """Show memories mentioning a graph node — graph and memory in one view."""
+    if not workspace.memory_db_path.is_file():
+        return
+    with MemoryStore(workspace.memory_db_path) as store:
+        memories = store.recall(label, limit=5)
+    if memories:
+        print("\nmemories:")
+        for observation in memories:
+            print(f"  [{observation.id}] {_stamp(observation.created_at)} "
+                  f"{observation.summary}")
+
+
+def cmd_ask(args: argparse.Namespace) -> int:
+    """Unified search: knowledge graph and memory answered together."""
+    term = " ".join(args.term)
+    workspace = find_workspace()
+    found_anything = False
+
+    graph = KnowledgeGraph.load(workspace.graph_path)
+    hits = search(graph, term)
+    if hits:
+        found_anything = True
+        print("knowledge graph:")
+        for hit in hits[:8]:
+            node = hit.node
+            location = f"  ({node.source})" if node.source else ""
+            print(f"  [{node.type:>8}] {node.label}{location}")
+
+    if workspace.memory_db_path.is_file():
+        with MemoryStore(workspace.memory_db_path) as store:
+            memories = store.recall(term, limit=8)
+        if memories:
+            found_anything = True
+            print("\nmemories:")
+            for observation in memories:
+                print(f"  [{observation.id}] {_stamp(observation.created_at)} "
+                      f"({observation.kind}) {observation.summary}")
+
+    if not found_anything:
+        print(f"Nothing in the graph or memory matches '{term}'.")
+        return 1
     return 0
 
 
@@ -234,9 +285,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("path", nargs="?", default=".")
     p.set_defaults(func=cmd_build)
 
-    p = sub.add_parser("ingest", help="ingest files and update the graph")
-    p.add_argument("files", nargs="+")
+    p = sub.add_parser("ingest", help="ingest files or URLs and update the graph")
+    p.add_argument("files", nargs="+", metavar="source")
     p.set_defaults(func=cmd_ingest)
+
+    p = sub.add_parser("ask", help="search graph and memory together")
+    p.add_argument("term", nargs="+")
+    p.set_defaults(func=cmd_ask)
 
     p = sub.add_parser("query", help="search the knowledge graph")
     p.add_argument("term", nargs="+")
